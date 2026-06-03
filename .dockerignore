@@ -1,0 +1,23 @@
+# Python/runtime caches
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+
+# Local secrets and tool state
+.env*
+.codex/
+.agents/
+
+# Runtime data not needed for the image
+data/
+waha-sessions/
+
+# Local state that should never be sent to the Docker daemon
+*.db
+*.sqlite
+*.sqlite3
+*.sqlite3-*
+*.pkl
+*.log
+.DS_Store

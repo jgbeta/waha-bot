@@ -1,0 +1,90 @@
+services:
+  waha:
+    # Core works for a single personal session. If you have WAHA Plus access,
+    # change WAHA_IMAGE=devlikeapro/waha-plus in .env.
+    image: ${WAHA_IMAGE:-devlikeapro/waha}
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      # API authentication. The bot uses the same key for REST calls.
+      WAHA_API_KEY: ${WAHA_API_KEY:?set WAHA_API_KEY in .env}
+      WHATSAPP_API_KEY_EXCLUDE_PATH: ${WHATSAPP_API_KEY_EXCLUDE_PATH:-ping,health}
+
+      # Dashboard for first QR scan and manual troubleshooting.
+      WAHA_DASHBOARD_ENABLED: ${WAHA_DASHBOARD_ENABLED:-true}
+      WAHA_DASHBOARD_USERNAME: ${WAHA_DASHBOARD_USERNAME:-admin}
+      WAHA_DASHBOARD_PASSWORD: ${WAHA_DASHBOARD_PASSWORD:?set WAHA_DASHBOARD_PASSWORD in .env}
+
+      # Webhook delivery from WAHA to the bot service inside this Compose network.
+      WHATSAPP_HOOK_URL: ${WAHA_WEBHOOK_URL:-http://bot:8000/webhook}
+      WHATSAPP_HOOK_EVENTS: ${WHATSAPP_HOOK_EVENTS:-message,session.status}
+      # Leave WAHA_WEBHOOK_HMAC_KEY blank to disable HMAC. Set it on both WAHA and bot.
+      WHATSAPP_HOOK_HMAC_KEY: ${WAHA_WEBHOOK_HMAC_KEY:-}
+      WHATSAPP_HOOK_RETRIES_POLICY: ${WHATSAPP_HOOK_RETRIES_POLICY:-exponential}
+      WHATSAPP_HOOK_RETRIES_DELAY_SECONDS: ${WHATSAPP_HOOK_RETRIES_DELAY_SECONDS:-2}
+      WHATSAPP_HOOK_RETRIES_ATTEMPTS: ${WHATSAPP_HOOK_RETRIES_ATTEMPTS:-5}
+      WHATSAPP_HOOK_CUSTOM_HEADERS: ${WHATSAPP_HOOK_CUSTOM_HEADERS:-}
+
+      # Single-session startup/persistence behavior.
+      WHATSAPP_START_SESSION: ${WAHA_SESSION:-default}
+      WHATSAPP_RESTART_ALL_SESSIONS: ${WHATSAPP_RESTART_ALL_SESSIONS:-true}
+      WAHA_AUTO_START_DELAY_SECONDS: ${WAHA_AUTO_START_DELAY_SECONDS:-0}
+      WAHA_WORKER_RESTART_SESSIONS: ${WAHA_WORKER_RESTART_SESSIONS:-true}
+      WAHA_PRINT_QR: ${WAHA_PRINT_QR:-true}
+      WAHA_LOCAL_STORE_BASE_DIR: /app/.sessions
+      WAHA_NAMESPACE: ${WAHA_NAMESPACE:-all}
+
+      # Reduce noise for a personal DM bot. Sending is not blocked by these filters.
+      WAHA_SESSION_CONFIG_IGNORE_STATUS: ${WAHA_SESSION_CONFIG_IGNORE_STATUS:-true}
+      WAHA_SESSION_CONFIG_IGNORE_GROUPS: ${WAHA_SESSION_CONFIG_IGNORE_GROUPS:-true}
+      WAHA_SESSION_CONFIG_IGNORE_CHANNELS: ${WAHA_SESSION_CONFIG_IGNORE_CHANNELS:-true}
+      WAHA_SESSION_CONFIG_IGNORE_BROADCAST: ${WAHA_SESSION_CONFIG_IGNORE_BROADCAST:-true}
+
+      WHATSAPP_DEFAULT_ENGINE: ${WHATSAPP_DEFAULT_ENGINE:-WEBJS}
+      WAHA_BASE_URL: ${WAHA_BASE_URL:-http://waha:3000}
+      WAHA_PUBLIC_URL: ${WAHA_PUBLIC_URL:-http://localhost:3000}
+      WAHA_LOG_LEVEL: ${WAHA_LOG_LEVEL:-info}
+      WAHA_HTTP_LOG_LEVEL: ${WAHA_HTTP_LOG_LEVEL:-warn}
+    ports:
+      # Bound on all interfaces by default so LAN devices can reach the dashboard.
+      - "${WAHA_HOST_PORT:-3000}:3000"
+    volumes:
+      # Host path for persistent WhatsApp session/auth data.
+      - ./waha-sessions:/app/.sessions
+    depends_on:
+      bot:
+        condition: service_healthy
+    healthcheck:
+      # /health is documented as Plus-only; /ping is the portable fallback.
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:3000/ping').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        BOT_STORE: ${BOT_STORE:-sqlite}
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      WAHA_BASE_URL: http://waha:3000
+      WAHA_SESSION: ${WAHA_SESSION:-default}
+      WAHA_WEBHOOK_URL: ${WAHA_WEBHOOK_URL:-http://bot:8000/webhook}
+    ports:
+      - "${BOT_HOST_PORT:-8000}:8000"
+    volumes:
+      # Host path for SQLite jobs/history when BOT_STORE=sqlite.
+      - ./data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3).read()\""]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+

@@ -1,0 +1,8 @@
+{
+  "id": "evt_session_1",
+  "event": "session.status",
+  "session": "default",
+  "payload": {
+    "status": "WORKING"
+  }
+}

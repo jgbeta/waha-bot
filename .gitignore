@@ -1,0 +1,28 @@
+# Local environment/secrets
+.env
+.env.*
+.env *
+!.env.example
+
+# Python/runtime caches
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+
+# Bot runtime data
+data/*
+!data/.gitkeep
+waha-sessions/*
+!waha-sessions/.gitkeep
+*.sqlite
+*.sqlite3
+*.sqlite3-*
+*.db
+
+# Local WAHA/prototype state
+*.pkl
+*.log
+
+# OS/editor
+.DS_Store

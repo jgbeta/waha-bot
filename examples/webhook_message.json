@@ -1,0 +1,14 @@
+{
+  "id": "evt_test_1",
+  "event": "message",
+  "session": "default",
+  "payload": {
+    "id": "false_12025550123@c.us_TEST",
+    "timestamp": 1710000000,
+    "from": "12025550123@c.us",
+    "fromMe": false,
+    "to": "me@c.us",
+    "body": "hello",
+    "hasMedia": false
+  }
+}
